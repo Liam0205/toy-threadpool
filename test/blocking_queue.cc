@@ -42,7 +42,8 @@ TEST_CASE("multiple-thread usage") {
   std::vector<std::future<void>> futures;
   futures.reserve(42);
   for (uint64_t i = 0; i != 42UL; ++i) {
-    futures.emplace_back(std::async(std::launch::async, &yuuki::blocking_queue<uint64_t>::push, &q, i));
+    futures.emplace_back(std::async(
+        std::launch::async, &yuuki::blocking_queue<uint64_t>::push, &q, i));
   }
   for (auto& fut : futures) {
     fut.get();

@@ -48,11 +48,17 @@ class threadpool {
  public:
   void init(int num);
   void terminate();  // stop and process all delegated tasks
+  void cancel();     // stop and drop all tasks remained in queue
 
  public:
   bool inited() const;
   bool is_running() const;
   int size() const;
+
+ private:
+  bool _is_running() const {
+    return inited_ && !stop_ && !cancel_;
+  }
 
  private:
   void spawn();
@@ -64,6 +70,7 @@ class threadpool {
  private:
   bool inited_{false};
   bool stop_{false};
+  bool cancel_{false};
   std::vector<std::thread> workers_;
   mutable blocking_queue<std::function<void()>> tasks_;
   mutable std::shared_mutex mtx_;
@@ -79,6 +86,7 @@ inline void threadpool::init(int num) {
   std::call_once(once_, [this, num]() {
     wlock lock(mtx_);
     stop_ = false;
+    cancel_ = false;
     workers_.reserve(num);
     for (int i = 0; i < num; ++i) {
       workers_.emplace_back(std::bind(&threadpool::spawn, this));
@@ -90,12 +98,28 @@ inline void threadpool::init(int num) {
 inline void threadpool::terminate() {
   {
     wlock lock(mtx_);
-    if (inited_ && !stop_) {
+    if (_is_running()) {
       stop_ = true;
     } else {
       return;
     }
   }
+  cond_.notify_all();
+  for (auto& worker : workers_) {
+    worker.join();
+  }
+}
+
+inline void threadpool::cancel() {
+  {
+    wlock lock(mtx_);
+    if (_is_running()) {
+      cancel_ = true;
+    } else {
+      return;
+    }
+  }
+  tasks_.clear();
   cond_.notify_all();
   for (auto& worker : workers_) {
     worker.join();
@@ -109,7 +133,7 @@ inline bool threadpool::inited() const {
 
 inline bool threadpool::is_running() const {
   rlock lock(mtx_);
-  return inited_ && !stop_;
+  return _is_running();
 }
 
 inline int threadpool::size() const {
@@ -125,10 +149,10 @@ inline void threadpool::spawn() {
       wlock lock(mtx_);
       cond_.wait(lock, [this, &pop, &task] {
         pop = tasks_.pop(task);
-        return stop_ || pop;
+        return cancel_ || stop_ || pop;
       });
     }
-    if (stop_ && !pop) {
+    if (cancel_ || (stop_ && !pop)) {
       return;
     }
     task();
@@ -136,14 +160,18 @@ inline void threadpool::spawn() {
 }
 
 template <class F, class... Args>
-auto threadpool::async(F&& f, Args&&... args) const -> std::future<decltype(f(args...))> {
+auto threadpool::async(F&& f, Args&&... args) const
+    -> std::future<decltype(f(args...))> {
   using return_t = decltype(f(args...));
   using future_t = std::future<return_t>;
   using task_t = std::packaged_task<return_t()>;
 
   {
     rlock lock(mtx_);
-    if (stop_) throw std::runtime_error("delegating task to a threadpool that has stopped.");
+    if (stop_ || cancel_)
+      throw std::runtime_error(
+          "Delegating task to a threadpool "
+          "that has been terminated or canceled.");
   }
 
   auto bind_func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
