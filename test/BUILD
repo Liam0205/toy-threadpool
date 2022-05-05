@@ -5,9 +5,16 @@
 #   ],
 # )
 
+# cc_binary(
+#   name = 'threadpool',
+#   srcs = [
+#     'threadpool.cc',
+#   ],
+# )
+
 cc_binary(
-  name = 'threadpool',
+  name = 'blocking_queue',
   srcs = [
-    'threadpool.cc',
+    'blocking_queue.cc',
   ],
 )
