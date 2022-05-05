@@ -23,10 +23,6 @@
 #include <future>
 #include <random>
 
-std::uint64_t Fibonacci(std::uint64_t number) {
-  return number < 2 ? 1 : Fibonacci(number - 1) + Fibonacci(number - 2);
-}
-
 TEST_CASE("threadpool - dryrun") {
   yuuki::threadpool pool;
   REQUIRE_FALSE(pool.inited());
@@ -110,35 +106,4 @@ TEST_CASE("threadpool - terminate before async") {
   for (int i = 0; i != 30; ++i) {
     REQUIRE(int_futs[i].get() == i);
   }
-}
-
-TEST_CASE("threadpool - benchmark") {
-  yuuki::threadpool pool;
-  pool.init(30);
-
-  const int NUM = 2048;
-
-  BENCHMARK("pool.async") {
-    std::vector<std::future<uint64_t>> futs;
-    futs.reserve(NUM);
-    for (int i = 0; i != NUM; ++i) {
-      futs.emplace_back(pool.async(Fibonacci, i % 10));
-    }
-    for (auto& fut : futs) {
-      fut.get();
-    }
-    return;
-  };
-
-  BENCHMARK("std::async") {
-    std::vector<std::future<uint64_t>> futs;
-    futs.reserve(NUM);
-    for (int i = 0; i != NUM; ++i) {
-      futs.emplace_back(std::async(std::launch::async, Fibonacci, i % 10));
-    }
-    for (auto& fut : futs) {
-      fut.get();
-    }
-    return;
-  };
 }
