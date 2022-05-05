@@ -1,0 +1,11 @@
+[submodule "thirdparty/blade-build"]
+  path = thirdparty/blade-build
+  url = https://github.com/repository-archives/blade-build.git
+  branch = legacy
+[submodule "thirdparty/cpplint"]
+  path = thirdparty/cpplint
+  url = https://github.com/Liam0205/cpplint.git
+[submodule "thirdparty/Catch2"]
+  path = thirdparty/Catch2
+  url = https://github.com/catchorg/Catch2.git
+  branch = v2.x

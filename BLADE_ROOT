@@ -1,0 +1,9 @@
+cc_config (
+  extra_incs   = ['thirdparty'],
+  warnings     = ['-Wall'], # , '-Wextra'
+  c_warnings   = ['-Wall'], # , '-Wextra'
+  cxx_warnings = ['-Wall'], # , '-Wextra'
+  optimize     = '-O3',
+  cxxflags     = '-std=c++17',
+  cpplint      = 'thirdparty/cpplint/cpplint.py',
+)
