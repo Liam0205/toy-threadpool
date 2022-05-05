@@ -56,10 +56,13 @@ class threadsafe_queue {
 
  public:
   bool empty() const {
-    return tail_ == head_.get();
+    rlock lock(head_mutex_);
+    return tail() == head_.get();
   }
 
   size_t size() const {
+    rlock h_lock(head_mutex_);
+    rlock t_lock(tail_mutex_);
     node* work = head_.get();
     size_t res = 0;
     while (work != tail_) {
@@ -71,6 +74,8 @@ class threadsafe_queue {
 
  public:
   void clear() {
+    wlock h_lock(head_mutex_);
+    wlock t_lock(tail_mutex_);
     head_->next.reset();
     tail_ = head_.get();
   }
