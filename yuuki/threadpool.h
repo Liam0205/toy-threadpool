@@ -33,7 +33,7 @@
 #include <vector>
 
 namespace yuuki {
-template <typename QueueType = blocking_queue<std::function<void()>>>
+template <typename QueueType = threadsafe_queue<std::function<void()>>>
 class threadpool {
  public:
   using wlock = std::unique_lock<std::shared_mutex>;
