@@ -25,7 +25,6 @@
 #include <queue>
 #include <stdexcept>
 #include <thread>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -54,6 +53,10 @@ class threadpool {
  public:
   template <class F, class... Args>
   auto delegate(F&& f, Args&&... args) const -> std::future<decltype(f(args...))>;
+  template <class F, class... Args>
+  inline auto async(F&& f, Args&&... args) const -> std::future<decltype(f(args...))> {
+    return delegate(std::forward<F>(f), std::forward<Args>(args)...);
+  }
 
  private:
   bool inited_{false};

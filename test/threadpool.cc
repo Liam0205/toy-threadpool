@@ -118,11 +118,11 @@ TEST_CASE("threadpool - benchmark") {
 
   const int NUM = 10240;
 
-  BENCHMARK("pool") {
+  BENCHMARK("pool.async") {
     std::vector<std::future<uint64_t>> futs;
     futs.reserve(NUM);
     for (int i = 0; i != NUM; ++i) {
-      futs.emplace_back(pool.delegate(Fibonacci, i % 10));
+      futs.emplace_back(pool.async(Fibonacci, i % 10));
     }
     for (auto& fut : futs) {
       fut.get();
@@ -130,7 +130,7 @@ TEST_CASE("threadpool - benchmark") {
     return;
   };
 
-  BENCHMARK("async") {
+  BENCHMARK("std::async") {
     std::vector<std::future<uint64_t>> futs;
     futs.reserve(NUM);
     for (int i = 0; i != NUM; ++i) {
