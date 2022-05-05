@@ -18,6 +18,7 @@
 #pragma once
 
 #include <yuuki/blocking_queue.h>
+#include <yuuki/threadsafe_queue.h>
 
 #include <condition_variable>
 #include <functional>
@@ -32,6 +33,7 @@
 #include <vector>
 
 namespace yuuki {
+template <typename QueueType = blocking_queue<std::function<void()>>>
 class threadpool {
  public:
   using wlock = std::unique_lock<std::shared_mutex>;
@@ -72,30 +74,33 @@ class threadpool {
   bool stop_{false};
   bool cancel_{false};
   std::vector<std::thread> workers_;
-  mutable blocking_queue<std::function<void()>> tasks_;
+  mutable QueueType tasks_;
   mutable std::shared_mutex mtx_;
   mutable std::condition_variable_any cond_;
   mutable std::once_flag once_;
 };
 
-inline threadpool::~threadpool() {
+template <typename QueueType>
+inline threadpool<QueueType>::~threadpool() {
   terminate();
 }
 
-inline void threadpool::init(int num) {
+template <typename QueueType>
+inline void threadpool<QueueType>::init(int num) {
   std::call_once(once_, [this, num]() {
     wlock lock(mtx_);
     stop_ = false;
     cancel_ = false;
     workers_.reserve(num);
     for (int i = 0; i < num; ++i) {
-      workers_.emplace_back(std::bind(&threadpool::spawn, this));
+      workers_.emplace_back(std::bind(&threadpool<QueueType>::spawn, this));
     }
     inited_ = true;
   });
 }
 
-inline void threadpool::terminate() {
+template <typename QueueType>
+inline void threadpool<QueueType>::terminate() {
   {
     wlock lock(mtx_);
     if (_is_running()) {
@@ -110,7 +115,8 @@ inline void threadpool::terminate() {
   }
 }
 
-inline void threadpool::cancel() {
+template <typename QueueType>
+inline void threadpool<QueueType>::cancel() {
   {
     wlock lock(mtx_);
     if (_is_running()) {
@@ -126,22 +132,26 @@ inline void threadpool::cancel() {
   }
 }
 
-inline bool threadpool::inited() const {
+template <typename QueueType>
+inline bool threadpool<QueueType>::inited() const {
   rlock lock(mtx_);
   return inited_;
 }
 
-inline bool threadpool::is_running() const {
+template <typename QueueType>
+inline bool threadpool<QueueType>::is_running() const {
   rlock lock(mtx_);
   return _is_running();
 }
 
-inline int threadpool::size() const {
+template <typename QueueType>
+inline int threadpool<QueueType>::size() const {
   rlock lock(mtx_);
   return workers_.size();
 }
 
-inline void threadpool::spawn() {
+template <typename QueueType>
+inline void threadpool<QueueType>::spawn() {
   for (;;) {
     bool pop = false;
     std::function<void()> task;
@@ -159,8 +169,9 @@ inline void threadpool::spawn() {
   }
 }
 
+template <typename QueueType>
 template <class F, class... Args>
-auto threadpool::async(F&& f, Args&&... args) const
+auto threadpool<QueueType>::async(F&& f, Args&&... args) const
     -> std::future<decltype(f(args...))> {
   using return_t = decltype(f(args...));
   using future_t = std::future<return_t>;
