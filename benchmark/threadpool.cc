@@ -16,7 +16,9 @@
 // =========================================================================
 
 #include <catch.h>
+#include <yuuki/blocking_queue.h>
 #include <yuuki/threadpool.h>
+#include <yuuki/threadsafe_queue.h>
 
 #include <cstdint>
 #include <future>
@@ -26,16 +28,29 @@ std::uint64_t Fibonacci(std::uint64_t number) {
 }
 
 TEST_CASE("threadpool - benchmark") {
-  yuuki::threadpool pool;
-  pool.init(30);
+  const int NUM = 10240;
 
-  const int NUM = 2048;
-
-  BENCHMARK("pool.async") {
+  yuuki::threadpool<yuuki::blocking_queue<std::function<void()>>> b_queue;
+  b_queue.init(30);
+  BENCHMARK("b_queue.async") {
     std::vector<std::future<uint64_t>> futs;
     futs.reserve(NUM);
     for (int i = 0; i != NUM; ++i) {
-      futs.emplace_back(pool.async(Fibonacci, i % 10));
+      futs.emplace_back(b_queue.async(Fibonacci, i % 10));
+    }
+    for (auto& fut : futs) {
+      fut.get();
+    }
+    return;
+  };
+
+  yuuki::threadpool<yuuki::threadsafe_queue<std::function<void()>>> ts_queue;
+  ts_queue.init(30);
+  BENCHMARK("ts_queue.async") {
+    std::vector<std::future<uint64_t>> futs;
+    futs.reserve(NUM);
+    for (int i = 0; i != NUM; ++i) {
+      futs.emplace_back(ts_queue.async(Fibonacci, i % 10));
     }
     for (auto& fut : futs) {
       fut.get();
