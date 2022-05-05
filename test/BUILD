@@ -1,6 +1,13 @@
+# cc_binary(
+#   name = 'fibonacci',
+#   srcs = [
+#     'fibonacci.cc',
+#   ],
+# )
+
 cc_binary(
-  name = 'fibonacci',
+  name = 'threadpool',
   srcs = [
-    'fibonacci.cc',
+    'threadpool.cc',
   ],
 )
