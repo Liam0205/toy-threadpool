@@ -40,7 +40,7 @@ TEST_CASE("threadpool - dryrun") {
 TEST_CASE("threadpool - testrun") {
   yuuki::threadpool pool;
   pool.init(3);
-  auto f = pool.delegate([]() -> int { return 0; });
+  auto f = pool.async([]() -> int { return 0; });
   REQUIRE(f.get() == 0);
 }
 
@@ -50,10 +50,10 @@ TEST_CASE("threadpool - run") {
   std::vector<std::future<int>> int_futs;
   std::vector<std::future<bool>> bool_futs;
   for (int i = 0; i != 30; ++i) {
-    int_futs.emplace_back(pool.delegate([](int i) -> int { return i; }, i));
+    int_futs.emplace_back(pool.async([](int i) -> int { return i; }, i));
   }
   for (int i = 0; i != 30; ++i) {
-    bool_futs.emplace_back(pool.delegate([](int i) -> bool { return i % 2 == 0; }, i));
+    bool_futs.emplace_back(pool.async([](int i) -> bool { return i % 2 == 0; }, i));
   }
   for (int i = 0; i != 30; ++i) {
     REQUIRE(int_futs[i].get() == i);
@@ -67,10 +67,10 @@ TEST_CASE("threadpool - terminate before get") {
   std::vector<std::future<int>> int_futs;
   std::vector<std::future<bool>> bool_futs;
   for (int i = 0; i != 30; ++i) {
-    int_futs.emplace_back(pool.delegate([](int i) -> int { return i; }, i));
+    int_futs.emplace_back(pool.async([](int i) -> int { return i; }, i));
   }
   for (int i = 0; i != 30; ++i) {
-    bool_futs.emplace_back(pool.delegate([i]() -> bool { return i % 2 == 0; }));
+    bool_futs.emplace_back(pool.async([i]() -> bool { return i % 2 == 0; }));
   }
   pool.terminate();
   REQUIRE(pool.inited());
@@ -81,20 +81,20 @@ TEST_CASE("threadpool - terminate before get") {
   }
 }
 
-TEST_CASE("threadpool - terminate before delegate") {
+TEST_CASE("threadpool - terminate before async") {
   // Seed with a real random value, if available
   std::random_device r;
 
   // Choose a random mean between 1 and 6
   std::default_random_engine eng(r());
-  std::uniform_int_distribution<int> uniform_dist(1, 1000);
+  std::uniform_int_distribution<int> uniform_dist(1, 100);
 
   yuuki::threadpool pool;
   pool.init(3);
   std::vector<std::future<int>> int_futs;
   std::vector<std::future<bool>> bool_futs;
   for (int i = 0; i != 30; ++i) {
-    int_futs.emplace_back(pool.delegate(
+    int_futs.emplace_back(pool.async(
         [&eng, &uniform_dist](int i) -> int {
           std::this_thread::sleep_for(std::chrono::milliseconds(uniform_dist(eng)));
           return i;
@@ -105,7 +105,7 @@ TEST_CASE("threadpool - terminate before delegate") {
   REQUIRE(pool.inited());
   REQUIRE_FALSE(pool.is_running());
   for (int i = 0; i != 30; ++i) {
-    REQUIRE_THROWS(bool_futs.emplace_back(pool.delegate([i]() -> bool { return i % 2 == 0; })));
+    REQUIRE_THROWS(bool_futs.emplace_back(pool.async([i]() -> bool { return i % 2 == 0; })));
   }
   for (int i = 0; i != 30; ++i) {
     REQUIRE(int_futs[i].get() == i);
@@ -116,7 +116,7 @@ TEST_CASE("threadpool - benchmark") {
   yuuki::threadpool pool;
   pool.init(30);
 
-  const int NUM = 10240;
+  const int NUM = 2048;
 
   BENCHMARK("pool.async") {
     std::vector<std::future<uint64_t>> futs;

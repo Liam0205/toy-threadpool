@@ -5,12 +5,12 @@
 #   ],
 # )
 
-# cc_binary(
-#   name = 'threadpool',
-#   srcs = [
-#     'threadpool.cc',
-#   ],
-# )
+cc_binary(
+  name = 'threadpool',
+  srcs = [
+    'threadpool.cc',
+  ],
+)
 
 cc_binary(
   name = 'blocking_queue',

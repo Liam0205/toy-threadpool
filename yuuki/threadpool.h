@@ -17,12 +17,15 @@
 
 #pragma once
 
+#include <yuuki/blocking_queue.h>
+
 #include <condition_variable>
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <shared_mutex>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -30,6 +33,10 @@
 
 namespace yuuki {
 class threadpool {
+ public:
+  using wlock = std::unique_lock<std::shared_mutex>;
+  using rlock = std::shared_lock<std::shared_mutex>;
+
  public:
   threadpool() = default;
   ~threadpool();
@@ -40,7 +47,7 @@ class threadpool {
 
  public:
   void init(int num);
-  void terminate();
+  void terminate();  // stop and process all delegated tasks
 
  public:
   bool inited() const;
@@ -52,19 +59,15 @@ class threadpool {
 
  public:
   template <class F, class... Args>
-  auto delegate(F&& f, Args&&... args) const -> std::future<decltype(f(args...))>;
-  template <class F, class... Args>
-  inline auto async(F&& f, Args&&... args) const -> std::future<decltype(f(args...))> {
-    return delegate(std::forward<F>(f), std::forward<Args>(args)...);
-  }
+  auto async(F&& f, Args&&... args) const -> std::future<decltype(f(args...))>;
 
  private:
   bool inited_{false};
   bool stop_{false};
   std::vector<std::thread> workers_;
-  mutable std::queue<std::function<void()>> tasks_;
-  mutable std::mutex mtx_;
-  mutable std::condition_variable cond_;
+  mutable blocking_queue<std::function<void()>> tasks_;
+  mutable std::shared_mutex mtx_;
+  mutable std::condition_variable_any cond_;
   mutable std::once_flag once_;
 };
 
@@ -74,7 +77,7 @@ inline threadpool::~threadpool() {
 
 inline void threadpool::init(int num) {
   std::call_once(once_, [this, num]() {
-    std::unique_lock<std::mutex> lock(mtx_);
+    wlock lock(mtx_);
     stop_ = false;
     workers_.reserve(num);
     for (int i = 0; i < num; ++i) {
@@ -86,7 +89,7 @@ inline void threadpool::init(int num) {
 
 inline void threadpool::terminate() {
   {
-    std::unique_lock<std::mutex> lock(mtx_);
+    wlock lock(mtx_);
     if (inited_ && !stop_) {
       stop_ = true;
     } else {
@@ -100,49 +103,53 @@ inline void threadpool::terminate() {
 }
 
 inline bool threadpool::inited() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  rlock lock(mtx_);
   return inited_;
 }
 
 inline bool threadpool::is_running() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  rlock lock(mtx_);
   return inited_ && !stop_;
 }
 
 inline int threadpool::size() const {
-  std::lock_guard<std::mutex> lock(mtx_);
+  rlock lock(mtx_);
   return workers_.size();
 }
 
 inline void threadpool::spawn() {
   for (;;) {
+    bool pop = false;
     std::function<void()> task;
     {
-      std::unique_lock<std::mutex> lock(this->mtx_);
-      this->cond_.wait(lock, [this] { return this->stop_ || !this->tasks_.empty(); });
-
-      if (stop_ && tasks_.empty()) return;
-      task = std::move(tasks_.front());
-      tasks_.pop();
+      wlock lock(mtx_);
+      cond_.wait(lock, [this, &pop, &task] {
+        pop = tasks_.pop(task);
+        return stop_ || pop;
+      });
+    }
+    if (stop_ && !pop) {
+      return;
     }
     task();
   }
 }
 
 template <class F, class... Args>
-auto threadpool::delegate(F&& f, Args&&... args) const -> std::future<decltype(f(args...))> {
+auto threadpool::async(F&& f, Args&&... args) const -> std::future<decltype(f(args...))> {
   using return_t = decltype(f(args...));
   using future_t = std::future<return_t>;
   using task_t = std::packaged_task<return_t()>;
 
+  {
+    rlock lock(mtx_);
+    if (stop_) throw std::runtime_error("delegating task to a threadpool that has stopped.");
+  }
+
   auto bind_func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
   std::shared_ptr<task_t> task = std::make_shared<task_t>(std::move(bind_func));
   future_t fut = task->get_future();
-  {
-    std::unique_lock<std::mutex> lock(mtx_);
-    if (stop_) throw std::runtime_error("delegating task to a threadpool that has stopped.");
-    tasks_.emplace([task]() -> void { (*task)(); });
-  }
+  tasks_.emplace([task]() -> void { (*task)(); });
   cond_.notify_one();
   return fut;
 }
