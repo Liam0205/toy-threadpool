@@ -77,10 +77,10 @@ TEST_CASE("multiple-thread push-pop") {
   REQUIRE(q.size() == 42UL);
   std::vector<std::future<bool>> pop_futures;
   for (uint64_t i = 0; i != 42UL; ++i) {
-    uint64_t holder;
-    pop_futures.emplace_back(std::async(std::launch::async,
-                                        &yuuki::threadsafe_queue<uint64_t>::pop,
-                                        &q, std::ref(holder)));
+    pop_futures.emplace_back(std::async(std::launch::async, [&q]() -> bool {
+      uint64_t holder;
+      return q.pop(holder);
+    }));
   }
   for (auto& fut : pop_futures) {
     REQUIRE(fut.get());
