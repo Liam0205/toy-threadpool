@@ -24,8 +24,9 @@
 #include <future>
 #include <thread>
 
+const int NUM = 2048;
+
 TEST_CASE("queue - multi_push") {
-  const int NUM = 1024;
   yuuki::threadpool<yuuki::threadsafe_queue<std::function<void()>>> pool;
   pool.init(std::thread::hardware_concurrency());
 
@@ -59,7 +60,6 @@ TEST_CASE("queue - multi_push") {
 }
 
 TEST_CASE("queue - multi_push_pop") {
-  const int NUM = 1024;
   yuuki::threadpool<yuuki::threadsafe_queue<std::function<void()>>> pool;
   pool.init(std::thread::hardware_concurrency());
 
@@ -70,11 +70,13 @@ TEST_CASE("queue - multi_push_pop") {
     for (int i = 0; i != NUM; ++i) {
       futs.emplace_back(
           pool.async([&b_queue, i]() -> void { return b_queue.push(i); }));
-      futs.emplace_back(pool.async([&b_queue, i]() -> void {
-        int holder;
-        b_queue.pop(holder);
-        return;
-      }));
+      if (i % 2 != 0) {
+        futs.emplace_back(pool.async([&b_queue, i]() -> void {
+          int holder;
+          b_queue.pop(holder);
+          return;
+        }));
+      }
     }
     for (auto& fut : futs) {
       fut.get();
@@ -89,11 +91,13 @@ TEST_CASE("queue - multi_push_pop") {
     for (int i = 0; i != NUM; ++i) {
       futs.emplace_back(
           pool.async([&ts_queue, i]() -> void { return ts_queue.push(i); }));
-      futs.emplace_back(pool.async([&ts_queue, i]() -> void {
-        int holder;
-        ts_queue.pop(holder);
-        return;
-      }));
+      if (i % 2 != 0) {
+        futs.emplace_back(pool.async([&ts_queue, i]() -> void {
+          int holder;
+          ts_queue.pop(holder);
+          return;
+        }));
+      }
     }
     for (auto& fut : futs) {
       fut.get();

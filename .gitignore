@@ -41,3 +41,9 @@ build.conf
 
 # VSCode
 .vscode
+
+# Vim
+*.swp
+
+# Core Dump
+core.*

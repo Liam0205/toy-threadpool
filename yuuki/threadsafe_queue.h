@@ -31,10 +31,10 @@ class threadsafe_queue {
 
  private:
   struct node {
-    std::shared_ptr<T> data;
+    T data;
     std::unique_ptr<node> next;
     node() = default;
-    node(T data_) : data(std::make_shared<T>(std::move(data_))) {
+    explicit node(T data_) : data(std::move(data_)) {
     }
   };
 
@@ -44,7 +44,8 @@ class threadsafe_queue {
   node* tail_{nullptr};
 
  public:
-  threadsafe_queue() : head_(std::make_unique<node>()), tail_(head_.get()){};
+  threadsafe_queue() : head_(std::make_unique<node>()), tail_(head_.get()) {
+  }
   ~threadsafe_queue() {
     clear();
   }
@@ -88,30 +89,27 @@ class threadsafe_queue {
     if (head_.get() == tail()) {
       return false;
     }
-    holder = std::move(*(head_->data));
+    holder = std::move(head_->data);
     const std::unique_ptr<node> old_head = std::move(head_);
     head_ = std::move(old_head->next);
     return true;
   }
 
   void push(T new_value) {
-    std::shared_ptr<T> new_data = std::make_shared<T>(std::move(new_value));
     std::unique_ptr<node> p = std::make_unique<node>();
     node* const new_tail = p.get();
     wlock lock(tail_mutex_);
-    tail_->data = std::move(new_data);
+    tail_->data = std::move(new_value);
     tail_->next = std::move(p);
     tail_ = new_tail;
   }
 
   template <typename... Args>
   void emplace(Args... args) {
-    std::shared_ptr<T> new_data =
-        std::make_shared<T>(std::forward<Args>(args)...);
     std::unique_ptr<node> p = std::make_unique<node>();
     node* const new_tail = p.get();
     wlock lock(tail_mutex_);
-    tail_->data = std::move(new_data);
+    tail_->data = T(std::forward<Args>(args)...);
     tail_->next = std::move(p);
     tail_ = new_tail;
   }
