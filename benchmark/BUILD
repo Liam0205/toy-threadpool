@@ -4,3 +4,10 @@ cc_binary(
     'threadpool.cc',
   ],
 )
+
+cc_binary(
+  name = 'queue',
+  srcs = [
+    'queue.cc',
+  ],
+)

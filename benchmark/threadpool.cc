@@ -28,7 +28,7 @@ std::uint64_t Fibonacci(std::uint64_t number) {
 }
 
 TEST_CASE("threadpool - benchmark") {
-  const int NUM = 10240;
+  const int NUM = 2048;
 
   yuuki::threadpool<yuuki::blocking_queue<std::function<void()>>> b_queue;
   b_queue.init(30);
