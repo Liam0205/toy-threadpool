@@ -10,6 +10,9 @@ cc_binary(
   srcs = [
     'threadpool.cc',
   ],
+  deps = [
+    '#pthread',
+  ],
 )
 
 cc_binary(
@@ -17,11 +20,17 @@ cc_binary(
   srcs = [
     'blocking_queue.cc',
   ],
+  deps = [
+    '#pthread',
+  ],
 )
 
 cc_binary(
   name = 'threadsafe_queue',
   srcs = [
     'threadsafe_queue.cc',
+  ],
+  deps = [
+    '#pthread',
   ],
 )
