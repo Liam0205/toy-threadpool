@@ -4,6 +4,7 @@ cc_config (
   c_warnings   = ['-Wall'], # , '-Wextra'
   cxx_warnings = ['-Wall'], # , '-Wextra'
   optimize     = '-O3',
-  cxxflags     = '-std=c++17',
+  cxxflags     = ['-std=c++17'],
+  linkflags    = ['-lpthread'],
   cpplint      = 'thirdparty/cpplint/cpplint.py',
 )
