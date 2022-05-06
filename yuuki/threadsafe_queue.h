@@ -45,6 +45,9 @@ class threadsafe_queue {
 
  public:
   threadsafe_queue() : head_(std::make_unique<node>()), tail_(head_.get()){};
+  ~threadsafe_queue() {
+    clear();
+  }
   threadsafe_queue(const threadsafe_queue& other) = delete;
   threadsafe_queue& operator=(const threadsafe_queue& other) = delete;
 
