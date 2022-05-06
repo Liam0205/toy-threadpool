@@ -76,7 +76,7 @@ class threadsafe_queue {
   void clear() {
     wlock h_lock(head_mutex_);
     wlock t_lock(tail_mutex_);
-    head_->next.reset();
+    std::make_unique<node>().swap(head_);
     tail_ = head_.get();
   }
 
@@ -86,9 +86,8 @@ class threadsafe_queue {
       return false;
     }
     holder = std::move(*(head_->data));
-    // const std::unique_ptr<node> old_head = std::move(head_);
-    // head_ = std::move(old_head->next);
-    head_.swap(head_->next);
+    const std::unique_ptr<node> old_head = std::move(head_);
+    head_ = std::move(old_head->next);
     return true;
   }
 
